@@ -3,6 +3,7 @@ from typing import Callable, Optional, Union
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jlinalg
+from jax.scipy.linalg import cho_solve, solve_triangular
 
 from parsmooth._base import MVNStandard, FunctionalModel, MVNSqrt, are_inputs_compatible, ConditionalMomentsModel
 from parsmooth._utils import none_or_concat, tria
@@ -32,12 +33,12 @@ def smoothing(transition_model: Union[FunctionalModel, ConditionalMomentsModel],
         smoothed_means, _, smoothed_chols = jax.lax.associative_scan(jax.vmap(sqrt_smoothing_operator),
                                                                      associative_params, reverse=True)
         res = jax.vmap(MVNSqrt)(smoothed_means, smoothed_chols)
-
     else:
         associative_params = _associative_params(linearization_method, transition_model,
                                                  nominal_trajectory, filter_trajectory, False)
         smoothed_means, _, smoothed_covs = jax.lax.associative_scan(jax.vmap(standard_smoothing_operator),
                                                                     associative_params, reverse=True)
+        smoothed_covs = jax.vmap(lambda x: 0.5 * (x + x.T))(smoothed_covs)
         res = jax.vmap(MVNStandard)(smoothed_means, smoothed_covs)
 
     return res
@@ -59,11 +60,13 @@ def _associative_params(linearization_method, transition_model,
 def _standard_associative_params(linearization_method, transition_model, n_k_1, m, P):
     F, Q, b = linearization_method(transition_model, n_k_1)
     Pp = F @ P @ F.T + Q
-
-    E = jlinalg.solve(Pp, F @ P, sym_pos=True).T
-
+    Pp = 0.5 * (Pp + Pp.T)
+    
+    E = jlinalg.solve(Pp, F @ P, assume_a="pos").T
+    
     g = m - E @ (F @ m + b)
     L = P - E @ Pp @ E.T
+    L = 0.5 * (L + L.T)
 
     return g, E, L
 

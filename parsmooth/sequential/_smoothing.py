@@ -47,11 +47,13 @@ def _standard_smooth(F, Q, b, xf, xs):
 
     mean_diff = ms - (b + F @ mf)
     S = F @ Pf @ F.T + Q
+    S = 0.5 * (S + S.T)
     cov_diff = Ps - S
 
-    gain = Pf @ jlag.solve(S, F, sym_pos=True).T
+    gain = Pf @ jlag.solve(S, F, assume_a="pos").T
     ms = mf + gain @ mean_diff
     Ps = Pf + gain @ cov_diff @ gain.T
+    Ps = 0.5 * (Ps + Ps.T)
 
     return MVNStandard(ms, Ps)
 

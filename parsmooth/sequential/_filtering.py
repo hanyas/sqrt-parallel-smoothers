@@ -68,11 +68,14 @@ def _standard_update(H, R, c, x, y):
     y_hat = H @ m + c
     y_diff = y - y_hat
     S = R + H @ P @ H.T
+    S = 0.5 * (S + S.T)
     chol_S = jnp.linalg.cholesky(S)
     G = P @ cho_solve((chol_S, True), H).T
 
     m = m + G @ y_diff
     P = P - G @ S @ G.T
+    P = 0.5 * (P + P.T)
+
     ell = mvn_loglikelihood(y_diff, chol_S)
     return MVNStandard(m, P), ell
 

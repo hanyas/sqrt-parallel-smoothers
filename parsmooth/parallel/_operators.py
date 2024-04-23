@@ -29,8 +29,8 @@ def standard_filtering_operator(elem1, elem2):
     IpCJ = I_dim + jnp.dot(C1, J2)
     IpJC = I_dim + jnp.dot(J2, C1)
 
-    AIpCJ_inv = jlinalg.solve(IpCJ.T, A2.T, sym_pos=False).T
-    AIpJC_inv = jlinalg.solve(IpJC.T, A1, sym_pos=False).T
+    AIpCJ_inv = jlinalg.solve(IpCJ.T, A2.T).T
+    AIpJC_inv = jlinalg.solve(IpJC.T, A1).T
 
     A = jnp.dot(AIpCJ_inv, A1)
     b = jnp.dot(AIpCJ_inv, b1 + jnp.dot(C1, eta2)) + b2
@@ -98,6 +98,7 @@ def standard_smoothing_operator(elem1, elem2):
     g = E2 @ g1 + g2
     E = E2 @ E1
     L = E2 @ L1 @ E2.T + L2
+    L = 0.5 * (L + L.T)
     return g, E, L
 
 

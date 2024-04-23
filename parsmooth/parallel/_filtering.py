@@ -3,6 +3,7 @@ from typing import Callable, Optional, Union
 import jax
 import jax.numpy as jnp
 import jax.scipy.linalg as jlinalg
+from jax.scipy.linalg import cho_solve, solve_triangular
 
 from parsmooth._base import MVNStandard, FunctionalModel, MVNSqrt, are_inputs_compatible, ConditionalMomentsModel
 from parsmooth._utils import tria, none_or_concat, mvn_loglikelihood
@@ -40,7 +41,7 @@ def filtering(observations: jnp.ndarray,
                                                                           nominal_trajectory, x0, observations)
         _, filtered_means, filtered_chol_or_cov, _, _ = jax.lax.associative_scan(jax.vmap(standard_filtering_operator),
                                                                                  associative_params)
-
+        filtered_chol_or_cov = jax.vmap(lambda x: 0.5 * (x + x.T))(filtered_chol_or_cov)
     filtered_means = none_or_concat(filtered_means, m0, position=1)
     filtered_chol_or_cov = none_or_concat(filtered_chol_or_cov, chol_or_cov_0, position=1)
 
@@ -80,19 +81,24 @@ def _standard_associative_params_one(linearization_method, transition_model, obs
 
     m = F @ m + b
     P = F @ P @ F.T + Q
-
+    P = 0.5 * (P + P.T)
+  
     S = H @ P @ H.T + R
-    S_invH = jlinalg.solve(S, H, sym_pos=True)
+    S = 0.5 * (S + S.T)
+    S_invH = jlinalg.solve(S, H, assume_a="pos")
+
     K = (S_invH @ P).T
     A = F - K @ H @ F
 
     b_std = m + K @ (y - H @ m - c)
     C = P - (K @ S @ K.T)
+    C = 0.5 * (C + C.T)
 
     temp = (S_invH @ F).T
     eta = temp @ (y - H @ b - c)
     J = temp @ H @ F
-
+    J = 0.5 * (J + J.T)
+  
     return (A, b_std, C, eta, J), (F, Q, b, H, R, c)
 
 

@@ -76,6 +76,32 @@ def iterated_smoothing(observations: jnp.ndarray,
     return nominal_traj
 
 
+def iterated_filtering(observations: jnp.ndarray,
+                       x0: Union[MVNSqrt, MVNStandard],
+                       transition_model: Union[FunctionalModel, ConditionalMomentsModel],
+                       observation_model: Union[FunctionalModel, ConditionalMomentsModel],
+                       linearization_method: Callable,
+                       init_nominal_trajectory: Optional[Union[MVNSqrt, MVNStandard]] = None,
+                       parallel: bool = True,
+                       criterion: Callable = _default_criterion,
+                       return_loglikelihood: bool = False):
+    if init_nominal_trajectory is None:
+        init_nominal_trajectory = filter_smoother(observations, x0, transition_model, observation_model,
+                                                  linearization_method, None, parallel)
+
+    def fun_to_iter(curr_nominal_traj):
+        return filtering(observations, x0, transition_model, observation_model, linearization_method,
+                               curr_nominal_traj, parallel)
+
+    nominal_traj = fixed_point(fun_to_iter, init_nominal_trajectory, criterion)
+    if return_loglikelihood:
+        _, ell = filtering(observations, x0, transition_model, observation_model, linearization_method,
+                           nominal_traj, parallel, return_loglikelihood=True)
+        return nominal_traj, ell
+    return nominal_traj
+
+
+
 def sampling(key: jnp.ndarray,
              n_samples: int,
              transition_model: Union[FunctionalModel, ConditionalMomentsModel],

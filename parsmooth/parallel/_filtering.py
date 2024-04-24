@@ -40,7 +40,7 @@ def filtering(observations: jnp.ndarray,
                                                                           nominal_trajectory, x0, observations)
         _, filtered_means, filtered_chol_or_cov, _, _ = jax.lax.associative_scan(jax.vmap(standard_filtering_operator),
                                                                                  associative_params)
-
+        filtered_chol_or_cov = jax.vmap(lambda x: 0.5 * (x + x.T))(filtered_chol_or_cov)
     filtered_means = none_or_concat(filtered_means, m0, position=1)
     filtered_chol_or_cov = none_or_concat(filtered_chol_or_cov, chol_or_cov_0, position=1)
 
